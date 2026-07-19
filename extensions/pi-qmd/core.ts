@@ -48,8 +48,12 @@ function toolCallParts(content: unknown): string[] {
 		if (!part || typeof part !== "object") return [];
 		const block = part as ContentBlock;
 		if (block.type !== "toolCall" || typeof block.name !== "string") return [];
-		const args = block.arguments ? ` ${JSON.stringify(block.arguments)}` : "";
-		return [`[Tool: ${block.name}${args}]`];
+		const interestingKeys = ["path", "file", "command", "query", "url"];
+		const details = interestingKeys.flatMap((key) => {
+			const value = block.arguments?.[key];
+			return typeof value === "string" ? [`${key}=${JSON.stringify(value.slice(0, 240))}`] : [];
+		});
+		return [`[Tool: ${block.name}${details.length > 0 ? ` ${details.join(" ")}` : ""}]`];
 	});
 }
 

@@ -127,7 +127,7 @@ export default function piQmd(pi: ExtensionAPI) {
 	let reviewInProgress = false;
 	let lastReviewedLeaf: string | null | undefined;
 
-	async function searchExisting(conversation: string, ctx: ExtensionContext): Promise<string> {
+	async function searchExisting(conversation: string): Promise<string> {
 		const status = await pi.exec("qmd", ["status"], { timeout: 15_000 });
 		if (status.code !== 0) return `qmd unavailable: ${status.stderr.trim()}`;
 
@@ -146,12 +146,15 @@ export default function piQmd(pi: ExtensionAPI) {
 
 	async function analyzeConversation(ctx: ExtensionContext): Promise<ReviewResult | undefined> {
 		const branch = ctx.sessionManager.getBranch();
-		const conversation = extractConversation(branch as never[], config.maxConversationChars);
+		const conversation = extractConversation(
+			branch as unknown as Parameters<typeof extractConversation>[0],
+			config.maxConversationChars,
+		);
 		if (conversation.length < config.minConversationChars) return undefined;
 		if (!ctx.model) throw new Error("No active model is available for the memory review");
 
 		ctx.ui.setStatus("pi-qmd", "reviewing memory…");
-		const matches = await searchExisting(conversation, ctx);
+		const matches = await searchExisting(conversation);
 		const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
 		if (!auth.ok) throw new Error(auth.error);
 		if (!auth.apiKey) throw new Error(`No API key available for ${ctx.model.provider}/${ctx.model.id}`);

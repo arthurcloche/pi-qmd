@@ -1,6 +1,6 @@
 {
   "name": "@arthurcloche/pi-qmd",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A Pi memory gate that compares closing chats with qmd before publishing durable learnings.",
   "type": "module",
   "license": "MIT",

@@ -1,10 +1,47 @@
 {
   "name": "@arthurcloche/pi-qmd",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "A Pi memory gate that compares closing chats with qmd before publishing durable learnings.",
   "type": "module",
-  "keywords": ["pi-package", "qmd", "knowledge-base"],
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "qmd",
+    "knowledge-base",
+    "agent-memory"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arthurcloche/pi-qmd.git"
+  },
+  "scripts": {
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc"
+  },
   "pi": {
-    "extensions": ["./extensions/pi-qmd/index.ts"]
+    "extensions": [
+      "./extensions/pi-qmd/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "typebox": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

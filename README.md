@@ -1,169 +1,123 @@
 # pi-qmd
 
-A pi extension that gives your agents a shared knowledge base powered by [qmd](https://github.com/tobi/qmd).
+A [Pi](https://github.com/earendil-works/pi-mono) package that helps a personal qmd knowledge base compound instead of letting useful discoveries die in closed chats.
 
-**The problem:** You do lots of explorations, learnings rot in unfinished agent conversations, and knowledge doesn't flow between sessions.
+When you press **Ctrl+D** on an empty Pi editor, pi-qmd:
 
-**The solution:** Every pi agent session gets tools to search your knowledge base and capture new learnings into it. You (or the agent) say `/remember` and the conversation's insights get distilled into a searchable markdown note.
+1. extracts the active conversation branch without dumping tool-result noise;
+2. refreshes qmd and runs lexical + semantic search against existing notes;
+3. asks the active model whether the conversation contains durable, novel knowledge;
+4. explains its recommendation and blocks exit until you choose to save, skip, or stay;
+5. if saved, writes a Markdown note and immediately runs `qmd update` and `qmd embed`.
 
-## What You Get
+It also reviews before `/new` and `/resume`, and provides manual capture through `/memory-review` or `/remember`.
 
-### Search tools (read path)
-| Tool | Speed | Use when |
-|------|-------|----------|
-| `kb_search` | ~30ms | Keyword/exact matches |
-| `kb_lookup` | ~2s | Concepts, synonyms, paraphrases |
-| `kb_query` | ~10s | Best quality, hybrid + reranking |
-| `kb_get` | instant | Retrieve full doc by path or #docid |
-| `kb_status` | instant | Check what's indexed |
+## Why an exit gate?
 
-### Knowledge capture (write path)
-| | |
-|-|-|
-| `kb_remember` tool | Agent writes a structured markdown note to `~/knowledge-base/` |
-| `/remember` command | Ask the agent to distill learnings from the current conversation |
-| `/remember <topic>` | Capture a specific topic from the conversation |
-| `/kb <query>` | Quick search shortcut |
+A manual “remember this” command depends on remembering to use it. The exit gate puts the decision at the point where knowledge would otherwise be lost, while comparison with qmd avoids filling the knowledge base with duplicates and routine session logs.
 
-### Automatic context
-The agent's system prompt is augmented with your qmd index status, so it knows what's searchable and will proactively check the KB before doing redundant work.
+## Requirements
 
-## Setup
+- Pi with extension support
+- [qmd](https://github.com/tobi/qmd) available as `qmd`
+- a configured qmd collection for the destination directory
+- an API key for the active Pi model (the review uses one low-reasoning completion)
 
-### 1. Install qmd
+## Install
 
 ```bash
-bun install -g https://github.com/tobi/qmd
+pi install git:github.com/arthurcloche/pi-qmd
 ```
 
-### 2. Create your knowledge base collection
+Try without installing:
+
+```bash
+pi -e git:github.com/arthurcloche/pi-qmd
+```
+
+## qmd setup
 
 ```bash
 mkdir -p ~/knowledge-base
 qmd collection add ~/knowledge-base --name knowledge-base
-qmd context add qmd://knowledge-base "Personal knowledge base — learnings, notes, and reference material captured from agent conversations and exploration"
-```
-
-### 3. Add any existing collections you want searchable
-
-```bash
-# Your Obsidian vault
-qmd collection add ~/Documents/Obsidian --name obsidian
-qmd context add qmd://obsidian "Obsidian vault — personal notes and documents"
-
-# Project docs
-qmd collection add ~/work/docs --name work-docs
-qmd context add qmd://work-docs "Work documentation"
-```
-
-### 4. Build the index
-
-```bash
+qmd context add qmd://knowledge-base \
+  "Personal knowledge base — durable learnings captured from Pi sessions"
 qmd update
-qmd embed    # generates vector embeddings (~2min first time, downloads ~2GB of models)
+qmd embed
 ```
 
-### 5. Install the extension
-
-Add to your pi settings (`~/.pi/settings.json`):
-
-```json
-{
-  "extensions": [
-    "~/Desktop/pi-qmd"
-  ]
-}
-```
-
-Or symlink into the global extensions directory:
-
-```bash
-ln -s ~/Desktop/pi-qmd ~/.pi/agent/extensions/pi-qmd
-```
-
-Or test it directly:
-
-```bash
-pi -e ~/Desktop/pi-qmd
-```
+qmd's own MCP server and skill now provide the read path for agents. This package intentionally adds only what qmd does not provide: a write tool and a conversation-close review gate.
 
 ## Usage
 
-### Search from any conversation
+### Review on close
 
-Just ask naturally — the agent knows about the KB:
+Press Ctrl+D while the editor is empty. After analysis, choose one of:
 
-> "Have I written anything about WebSocket connection pooling?"
-> "Check my notes for that debugging trick with Chrome DevTools"
+- **Save “…”** — write and index the proposed note, then exit
+- **Exit without saving** — leave the knowledge base unchanged
+- **Stay in this chat** — cancel closing
 
-Or use the shortcut:
+Short conversations are classified as not worth capturing without spending a model call.
 
-```
-/kb websocket pooling
-```
+### Manual review
 
-### Capture learnings
-
-After a productive session:
-
-```
-/remember
+```text
+/memory-review
 ```
 
-Or capture something specific:
+`/remember` is an alias.
 
+### Agent write tool
+
+The package registers `kb_remember`. Agents can use it to save a self-contained Markdown note. Unlike the original pi-hub implementation, indexing is automatic; there is no follow-up `qmd update && qmd embed` chore to forget.
+
+## Configuration
+
+Create `~/.config/pi-qmd/config.json`:
+
+```json
+{
+  "knowledgeBaseDir": "~/knowledge-base",
+  "collection": "knowledge-base",
+  "reviewOnExit": true,
+  "minConversationChars": 700,
+  "maxConversationChars": 40000,
+  "searchLimit": 5,
+  "refreshBeforeReview": true,
+  "autoIndex": true
+}
 ```
-/remember the approach we figured out for handling race conditions in the queue
-```
 
-The agent will:
-1. Review the conversation
-2. Extract the key insights
-3. Write a well-structured markdown note to `~/knowledge-base/`
-4. Remind you to run `qmd update && qmd embed`
+| Setting | Purpose |
+| --- | --- |
+| `knowledgeBaseDir` | Directory where generated notes are written |
+| `collection` | qmd collection searched for overlap; use `""` to search all collections |
+| `reviewOnExit` | Enable Ctrl+D and session-switch gates |
+| `minConversationChars` | Skip model analysis for obviously trivial chats |
+| `maxConversationChars` | Bound review prompt size while preserving both ends |
+| `searchLimit` | Number of qmd candidates supplied to the reviewer |
+| `refreshBeforeReview` | Run `qmd update` and incremental `qmd embed` before comparison |
+| `autoIndex` | Index immediately after writing a note |
 
-### Keep the index fresh
+Run `/reload` after changing configuration.
 
-After capturing notes, update the index:
+## Important limitations
+
+Pi's `session_shutdown` event is notification-only; it cannot cancel a shutdown that has already begun. The package therefore intercepts Pi's normal **Ctrl+D** exit action and cancellable session-switch events. OS signals, terminal closure, process kills, and other custom exit mechanisms cannot be blocked.
+
+Only one custom editor can be active in Pi. If another extension already owns the editor, pi-qmd leaves it untouched and asks you to use `/memory-review` manually. `/new` and `/resume` remain gated.
+
+## Development
 
 ```bash
-qmd update && qmd embed
+pnpm install
+pnpm test
+pi -e .
 ```
 
-You could also alias this:
+The repository history begins with the original pi-hub `pi-qmd` implementation before the package was simplified around qmd's native MCP tooling.
 
-```bash
-alias kbsync="qmd update && qmd embed"
-```
+## License
 
-## File Structure
-
-Notes are saved as:
-
-```
-~/knowledge-base/
-├── 2026-02-14-websocket-connection-pooling.md
-├── 2026-02-14-chrome-devtools-debugging.md
-├── til/
-│   └── 2026-02-14-bash-process-substitution.md
-└── projects/
-    └── foo/
-        └── 2026-02-14-architecture-decisions.md
-```
-
-Each note includes frontmatter:
-
-```yaml
----
-title: "WebSocket Connection Pooling"
-date: 2026-02-14T18:48:00.000Z
-tags: ["websocket", "networking", "performance"]
----
-```
-
-## Tips
-
-- **Add your Obsidian vault** as a qmd collection — then agents can search your existing notes too
-- **Use subfolders** in `/remember` — the agent can organize into `til/`, `recipes/`, `projects/x/`, etc.
-- **The agent checks the KB automatically** when its system prompt mentions your indexed collections
-- **Works across sessions** — knowledge captured in one conversation is searchable in the next (after `qmd update && qmd embed`)
+MIT

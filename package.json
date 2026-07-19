@@ -1,0 +1,10 @@
+{
+  "name": "@arthurcloche/pi-qmd",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "keywords": ["pi-package", "qmd", "knowledge-base"],
+  "pi": {
+    "extensions": ["./extensions/pi-qmd/index.ts"]
+  }
+}
